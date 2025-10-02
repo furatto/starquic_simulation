@@ -35,7 +35,7 @@ class NetworkConfigThread(threading.Thread):
         return self.current_line_number
 
     def set_bandwidth(self, bw, action = "change"):
-        # burst = int(math.ceil(bw))
+        burst = int(math.ceil(bw))
         self.host.cmd(f'tc qdisc {action} dev {self.dev} root handle 1: tbf rate {bw}mbit burst 200k latency 50ms')
 
     def set_delay(self, delay, action = "change"):
@@ -64,12 +64,12 @@ class NetworkConfigThread(threading.Thread):
             
             time.sleep(self.step)
 
-# def link_interruption(node: mininet.node.Host, link: str, loss_rate: int):
-#     for intf in node.intfList():
-#         if intf.link and str(intf) == link:
-#             intfs = [intf.link.intf1, intf.link.intf2]
-#             intfs[0].config(loss = loss_rate)
-#             intfs[1].config(loss = loss_rate)
+def link_interruption(node: mininet.node.Host, link: str, loss_rate: int):
+    for intf in node.intfList():
+        if intf.link and str(intf) == link:
+            intfs = [intf.link.intf1, intf.link.intf2]
+            intfs[0].config(loss = loss_rate)
+            intfs[1].config(loss = loss_rate)
 
 def sleep_until_ts(end):
     while True:
@@ -94,7 +94,6 @@ def next_handover_ts():
 
     raise Exception("Could not calculate next handover.")
 
-"""
 def handover_event(node: mininet.node.Host, trace_path):
     network_thread2 = NetworkConfigThread(net, 'r2', 'r2-eth1', trace_path, 0.1, 3)
     network_thread4 = NetworkConfigThread(net, 'r4', 'r4-eth0', trace_path, 0.1, 2)
@@ -108,26 +107,25 @@ def handover_event(node: mininet.node.Host, trace_path):
         continue
         sleep_until_ts(next_handover_ts())
 
-        # stop_event = threading.Event()
+        stop_event = threading.Event()
         network_thread2.stop()
         network_thread4.stop()
         line2 = network_thread2.join()
         line4 = network_thread4.join()
-
-        print("Handover")
 
         network_thread2 = NetworkConfigThread(net, 'r2', 'r2-eth1', trace_path, 0.1, 3, line2)
         network_thread4 = NetworkConfigThread(net, 'r4', 'r4-eth0', trace_path, 0.1, 2, line4)
         network_thread2.start()
         network_thread4.start()
 
-        # loss_rate = random.choice([2, 3])
-        # link_interruption(node, iface1, loss_rate) # iface1 = "r2-eth0"
-"""    
+        loss_rate = random.choice([2, 3])
+        link_interruption(node, iface1, loss_rate) # iface1 = "r2-eth0"
 
 def run_test(net, server_command, client_command):
     h1 = net.get("h1")
     h2 = net.get("h2")
+
+    #CLI(net) #デバッグ用
 
     h1.sendCmd(server_command)
 
@@ -143,19 +141,32 @@ def run_test(net, server_command, client_command):
     for line in client_out.split("\n"):
         if line.startswith("Connection established."): print(line)
 
-        # print("Server#############")
-        # print(server_out)
-        # print("Client#############")
-        # print(client_out)
-        # print("###################")
-        # h1.sendCmd(f'xterm -title "node: h1 server" -hold -e "sh" &')
-        # h2.sendCmd(f'xterm -title "node: h2 client" -hold -e "sh" &')
-        # time.sleep(500)
-        # h1.sendInt()
-        # h2.sendInt()
-        # h1.waitOutput()
-        # h2.waitOutput()
-        # time.sleep(5)
+        print("Server#############")
+        print(server_out)
+        print("Client#############")
+        print(client_out)
+        print("###################")
+        h1.sendCmd(f'xterm -title "node: h1 server" -hold -e "sh" &')
+        h2.sendCmd(f'xterm -title "node: h2 client" -hold -e "sh" &')
+        time.sleep(500)
+        h1.sendInt()
+        h2.sendInt()
+        h1.waitOutput()
+        h2.waitOutput()
+        time.sleep(5)
+
+#------------------------------------------------------------------------------------
+def disable_checksum_offload(net):#チェックサムオフローディングの無効化(by gemini)
+    """Disable checksum offloading on all hosts and routers."""
+    for node in net.hosts:
+        print(f"Disabling checksum offload on {node.name}")
+        # node.intfList()はノードの全インターフェースをリストアップする
+        for intf in node.intfList():
+            # ループバック(lo)インターフェースは対象外
+            if 'lo' not in intf.name:
+                node.cmd(f'ethtool -K {intf.name} tx off rx off sg off')
+#------------------------------------------------------------------------------------
+
 
 def create_topology():
     setLogLevel('info')
@@ -231,7 +242,9 @@ def create_topology():
     
     h2.cmd("ip route add default scope global nexthop via 10.0.4.2 dev h2-eth0")
     
-    # h1.cmd('xterm -title "node: h2 monitoring" -hold -e "sudo bwm-ng" &')
+    #disable_checksum_offload(net) #追加
+
+    h1.cmd('xterm -title "node: h2 monitoring" -hold -e "sudo bwm-ng" &')
 
     return net
 
@@ -239,19 +252,20 @@ if __name__ == '__main__':
 
     net = create_topology()
 
-    # change_latency_process = Process(target = handover_event, args = (net.get("r2"), '../testbed/victoria.csv',))
-    # change_latency_process.start()
+    change_latency_process = Process(target = handover_event, args = (net.get("r2"), '../Starlink-Emulator/victoria.csv',))
+    change_latency_process.start()
 
-    trace_path = '../testbed/victoria.csv'
+    trace_path = '../Starlink-Emulator/victoria.csv'
     offset = 0
     n_tests = 10
 
     test_algo = "bbr"
-    test_server = "./build/picoquicdemo" # Modified
-    # test_server = "../picoquic/build/picoquicdemo" # Unmodified
+    #test_server = "./build/picoquicdemo" # Modified
+    test_server = "../picoquic_leo/build/picoquicdemo" # Unmodified
 
-    server_command = f"{test_server} -1 -p 4434 -G {test_algo} -b ./build/slogs -w ./build/srv"
-    client_command = "../picoquic/build/picoquicdemo -n eidetic -e 3 -T /dev/null -G bbr -b ../picoquic/build/slogs -o ../picoquic/build/out 10.0.1.2 4434 '0:data4.bin'"
+    server_log_path = "/tmp/server.log"
+    server_command = f"{test_server} -l {server_log_path} -c ./auth/cert.pem -k ./auth/key.pem -1 -p 4434 -G {test_algo} -q ./build/slogs -w ./build/srv"
+    client_command = "../picoquic/build/picoquicdemo -n eidetic -e 3 -T /dev/null -G bbr -q ../picoquic/build/slogs -o ../picoquic/build/out 10.0.1.2 4434 '0:data4.bin'"
 
     print("Server command:", server_command)
     print("Client command:", client_command)
@@ -276,14 +290,13 @@ if __name__ == '__main__':
             network_thread4.stop()
             network_thread2.join()
             network_thread4.join()
+
   
     test_process = threading.Thread(target = run_tests)
     test_process.start()
     test_process.join()
 
-    # net.get("h1").terminate()
-    # net.get("h2").terminate()
-    # change_latency_process.join()
-    # CLI(net)
-
+    net.get("h1").terminate()
+    net.get("h2").terminate()
+    change_latency_process.join()
     net.stop()
