@@ -1,1 +1,0 @@
-time, path, sequence, highest ack, high ack time, last time ack, cwin, one-way-delay, rtt-sample, SRTT, RTT min, Bandwidth (B/s), Receive rate (B/s), Send MTU, pacing packet time(us), nb retrans, nb spurious, cwin blkd, flow blkd, stream blkd, app limited, cc_state, cc_param, bw_max, transit, 
