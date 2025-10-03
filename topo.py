@@ -104,7 +104,6 @@ def handover_event(node: mininet.node.Host, trace_path):
     network_thread4.start()
 
     while True:
-        continue
         sleep_until_ts(next_handover_ts())
 
         stop_event = threading.Event()
@@ -118,8 +117,11 @@ def handover_event(node: mininet.node.Host, trace_path):
         network_thread2.start()
         network_thread4.start()
 
-        loss_rate = random.choice([2, 3])
-        link_interruption(node, iface1, loss_rate) # iface1 = "r2-eth0"
+        print("Handover event at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+        # loss_rate = random.choice([2, 3])
+        # iface1 = "r2-eth0"
+        # link_interruption(node, iface1, loss_rate) # iface1 = "r2-eth0"
 
 def run_test(net, server_command, client_command):
     h1 = net.get("h1")
@@ -138,22 +140,28 @@ def run_test(net, server_command, client_command):
 
     print(f"Duration: {duration:.2f}")
 
-    for line in client_out.split("\n"):
-        if line.startswith("Connection established."): print(line)
+    print ("Server#############")
+    print (server_out)
+    print ("Client#############")
+    print (client_out)
+    print ("###################")
 
-        print("Server#############")
-        print(server_out)
-        print("Client#############")
-        print(client_out)
-        print("###################")
-        h1.sendCmd(f'xterm -title "node: h1 server" -hold -e "sh" &')
-        h2.sendCmd(f'xterm -title "node: h2 client" -hold -e "sh" &')
-        time.sleep(500)
-        h1.sendInt()
-        h2.sendInt()
-        h1.waitOutput()
-        h2.waitOutput()
-        time.sleep(5)
+    # for line in client_out.split("\n"):
+    #     if line.startswith("Connection established."): print(line)
+
+    #     print("Server#############")
+    #     print(server_out)
+    #     print("Client#############")
+    #     print(client_out)
+    #     print("###################")
+    #     h1.sendCmd(f'xterm -title "node: h1 server" -hold -e "sh" &')
+    #     h2.sendCmd(f'xterm -title "node: h2 client" -hold -e "sh" &')
+    #     time.sleep(10)
+    #     h1.sendInt()
+    #     h2.sendInt()
+    #     h1.waitOutput()
+    #     h2.waitOutput()
+    #     time.sleep(5)
 
 #------------------------------------------------------------------------------------
 def disable_checksum_offload(net):#チェックサムオフローディングの無効化(by gemini)
@@ -265,7 +273,7 @@ if __name__ == '__main__':
 
     server_log_path = "/tmp/server.log"
     server_command = f"{test_server} -l {server_log_path} -c ./auth/cert.pem -k ./auth/key.pem -1 -p 4434 -G {test_algo} -q ./build/slogs -w ./build/srv"
-    client_command = "../picoquic/build/picoquicdemo -n eidetic -e 3 -T /dev/null -G bbr -q ../picoquic/build/slogs -o ../picoquic/build/out 10.0.1.2 4434 '0:data4.bin'"
+    client_command = "../picoquic/build/picoquicdemo -n eidetic -e 3 -T /dev/null -G bbr -q ../picoquic/build/slogs -o ../picoquic/build/out 10.0.1.2 4434 'data4.bin'"
 
     print("Server command:", server_command)
     print("Client command:", client_command)
@@ -273,6 +281,12 @@ if __name__ == '__main__':
     def run_tests():
 
         for i in range(n_tests):
+
+            h2 = net.get("h2")
+            dump_file = f"./log/tcpdump/client_{i}.pcap"
+            h2.cmd(f"rm -f {dump_file}")
+            h2.cmd(f"tcpdump -i h2-eth0 -w {dump_file} &")
+            time.sleep(1)
 
             network_thread2 = NetworkConfigThread(net, 'r2', 'r2-eth1', trace_path, 0.1, 3, offset)
             network_thread4 = NetworkConfigThread(net, 'r4', 'r4-eth0', trace_path, 0.1, 2, offset)
@@ -290,6 +304,9 @@ if __name__ == '__main__':
             network_thread4.stop()
             network_thread2.join()
             network_thread4.join()
+
+            h2.cmd("pkill tcpdump")
+            time.sleep(1)
 
   
     test_process = threading.Thread(target = run_tests)
