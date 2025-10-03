@@ -1,3 +1,4 @@
 /build/slogs/**
 /build/srv/data4.bin
+/log/tcpdump/**
 openssl-1.1.1w
