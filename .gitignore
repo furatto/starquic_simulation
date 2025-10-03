@@ -1,4 +1,10 @@
+!build/
 /build/slogs/**
+!build/slogs/.gitkeep
 /build/srv/data4.bin
+!/build/srv/.gitkeep
+
+!log/
 /log/tcpdump/**
+!log/tcpdump/.gitkeep
 openssl-1.1.1w
