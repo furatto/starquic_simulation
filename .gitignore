@@ -3,7 +3,7 @@
 !build/slogs/.gitkeep
 /build/srv/data4.bin
 !/build/srv/.gitkeep
-
+!/myprogram/csv_logs/.gitkeep
 !log/
 /log/tcpdump/**
 !log/tcpdump/.gitkeep
