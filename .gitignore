@@ -1,4 +1,5 @@
 !build/
+venv/
 /build/slogs/**
 !build/slogs/.gitkeep
 /build/srv/data4.bin

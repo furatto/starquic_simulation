@@ -1,2 +1,0 @@
-pcap2qlogs
-    node out/main.js -i ../pcap_logs/client_9.pcap --output=../pcap_logs/client_9.qlog --tshark=/usr/bin/tshark
